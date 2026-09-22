@@ -751,17 +751,49 @@
                 });
             });
 
-            stories.sort((a, b) => b.timestamp - a.timestamp);
-            
-            const top5 = [];
-            const existingTitles = [];
-            for (const story of stories) {
-                if (top5.length >= 5) break; 
-                if (!isDuplicateTopic(story.title, existingTitles)) {
-                    top5.push(story);
-                    existingTitles.push(story.title);
-                }
+            // Editorial ranking: cluster different outlets covering the same underlying story,
+            // then reward agenda prominence rather than simply taking the five newest links.
+            const routineOfficialRegex = /\b(have your say|consultation|joint declaration|memorandum of understanding|guidance|statutory guidance|notice|procurement|tender|appointments?|ministerial appointment|government response|call for evidence|roadside rubbish|press release)\b/i;
+            const hardNewsRegex = /\b(dead|dies|killed|death|fire|murder|attack|arrest|resign|resignation|speech|conference|budget|borrowing|debt|deficit|inflation|interest rate|tax|taxes|spending|economy|gdp|unemployment|nhs|hospital|strike|court|police|election|parliament|government|prime minister|chancellor|party leader|lib dem|labour|conservative|reform uk|crisis|emergency|investigation)\b/i;
+            const majorOutletWeight = { "BBC News": 5, "The Guardian": 4, "Google News UK": 1 };
+
+            function editorialWords(title) {
+                const stop = new Set(["the","and","for","with","from","into","over","after","before","amid","says","said","say","uk","britain","british","today","latest","live","news","new","government"]);
+                return (title || "").toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/)
+                    .filter(w => w.length >= 4 && !stop.has(w));
             }
+            function sameEditorialStory(a, b) {
+                const aw = editorialWords(a.title), bw = editorialWords(b.title);
+                const common = aw.filter(w => bw.includes(w));
+                if (common.length >= 3) return true;
+                // Two distinctive shared words is enough for shorter headlines.
+                return common.length >= 2 && Math.min(aw.length, bw.length) <= 7;
+            }
+
+            const clusters = [];
+            for (const story of stories) {
+                let cluster = clusters.find(c => c.items.some(existing => sameEditorialStory(story, existing)));
+                if (!cluster) { cluster = { items: [] }; clusters.push(cluster); }
+                cluster.items.push(story);
+            }
+
+            const now = Date.now();
+            const ranked = clusters.map(cluster => {
+                cluster.items.sort((a,b) => b.timestamp - a.timestamp);
+                const representative = cluster.items[0];
+                const distinctSources = new Set(cluster.items.map(x => x.source));
+                const ageHours = Math.max(0, (now - representative.timestamp) / 3600000);
+                const corroboration = Math.min(30, (distinctSources.size - 1) * 15);
+                const recency = Math.max(0, 22 - ageHours);
+                const outlet = Math.max(...cluster.items.map(x => majorOutletWeight[x.source] || 1));
+                const text = cluster.items.map(x => x.title).join(" ");
+                const hardNews = hardNewsRegex.test(text) ? 10 : 0;
+                const routinePenalty = routineOfficialRegex.test(text) ? 35 : 0;
+                return { ...representative, score: corroboration + recency + outlet + hardNews - routinePenalty };
+            });
+
+            ranked.sort((a,b) => b.score - a.score || b.timestamp - a.timestamp);
+            const top5 = ranked.slice(0,5);
             
             if(top5.length === 0) {
                 container.innerHTML = `<div class="empty-state">Unable to load Top Stories at this time. Will retry shortly.</div>`;
