@@ -493,10 +493,9 @@
         // --- 3. SOURCES & CONFIGURATION ---
 
         const topNewsSources = [
-            { name: "BBC News", url: "https://feeds.bbci.co.uk/news/uk/rss.xml" },
-            { name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/home.xml" },
-            { name: "The Guardian", url: "https://www.theguardian.com/uk/rss" },
-            { name: "Google News UK", url: "https://news.google.com/rss/headlines/section/geo/GB?hl=en-GB&gl=GB&ceid=GB:en" }
+            { name: "BBC News", url: "https://feeds.bbci.co.uk/news/uk/rss.xml", ukOnly: false },
+            { name: "The Guardian", url: "https://www.theguardian.com/uk/rss", ukOnly: false },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain+OR+British+OR+England+OR+Scotland+OR+Wales+OR+%22Northern+Ireland%22+OR+Westminster)&hl=en-GB&gl=GB&ceid=GB:en", ukOnly: true }
         ];
 
         const missionSources = [
@@ -511,6 +510,9 @@
             { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22artificial+intelligence%22+OR+AI+OR+ChatGPT+OR+OpenAI+OR+Anthropic+OR+Claude+OR+Gemini+OR+%22Google+DeepMind%22+OR+DeepMind+OR+xAI+OR+Grok+OR+%22Meta+AI%22+OR+Llama+OR+Mistral+OR+Cohere+OR+Perplexity+OR+DeepSeek+OR+Qwen+OR+Nvidia+OR+%22Microsoft+Copilot%22)&hl=en-GB&gl=GB&ceid=GB:en" },
             { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22AI+agent%22+OR+%22AI+agents%22+OR+agentic+OR+LLM+OR+%22large+language+model%22+OR+%22foundation+model%22+OR+multimodal+OR+%22reasoning+model%22+OR+%22open-weight%22+OR+%22open+source+AI%22+OR+RAG+OR+%22synthetic+data%22+OR+%22AI+compute%22+OR+%22AI+chips%22+OR+GPU+OR+%22data+centre%22+OR+%22data+center%22)&hl=en-GB&gl=GB&ceid=GB:en" },
             { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22AI+safety%22+OR+%22AI+regulation%22+OR+%22AI+governance%22+OR+%22frontier+AI%22+OR+AGI+OR+superintelligence+OR+alignment+OR+%22AI+copyright%22+OR+deepfake+OR+%22AI+jobs%22+OR+%22AI+productivity%22+OR+%22AI+adoption%22)&hl=en-GB&gl=GB&ceid=GB:en" },
+            { name: "TES", url: "https://news.google.com/rss/search?q=site%3Ates.com%2Fmagazine+(UK+OR+England)+(%22early+years%22+OR+childcare+OR+nursery+OR+primary+OR+Ofsted+OR+SEND+OR+%22school+funding%22)&hl=en-GB&gl=GB&ceid=GB:en" },
+            { name: "Substack Blog", url: "https://news.google.com/rss/search?q=site%3Asubstack.com+(UK+OR+Britain)+(policy+OR+politics+OR+childcare+OR+health+OR+climate+OR+economy+OR+AI+OR+devolution+OR+housing)&hl=en-GB&gl=GB&ceid=GB:en" },
+            { name: "Medium Blog", url: "https://news.google.com/rss/search?q=site%3Amedium.com+(UK+OR+Britain)+(policy+OR+politics+OR+childcare+OR+health+OR+climate+OR+economy+OR+AI+OR+devolution+OR+housing)&hl=en-GB&gl=GB&ceid=GB:en" },
             { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(devolution+OR+%22metro+mayor%22+OR+%22local+government%22)&hl=en-GB&gl=GB&ceid=GB:en" },
             { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(housing+OR+%22house+building%22+OR+%22affordable+housing%22+OR+mortgages)&hl=en-GB&gl=GB&ceid=GB:en" }
         ];
@@ -659,6 +661,11 @@
         
         const blockedUrlPaths = ["/world/", "/world-news/", "/us-news/", "/australia-news/", "/international/", "/global/", "/europe/", "/us/", "/asia/", "/africa/"];
 
+        // Strong UK relevance checks for broad aggregators. Section-specific BBC/Guardian
+        // feeds are already UK-curated, but Google News must explicitly look British.
+        const ukRelevanceRegex = /\b(uk|u\.k\.|britain|british|england|english|scotland|scottish|wales|welsh|northern ireland|westminster|whitehall|downing street|nhs|ofsted|london|manchester|birmingham|glasgow|edinburgh|cardiff|labour|conservative|lib dem|reform uk|bank of england|hm treasury|uk government|british government)\b/i;
+        const obviousForeignRegex = /\b(sean combs|diddy|south africa|south african|germany|german election|russia|russian election|united states|u\.s\.|usa|washington|new york|france|french election|china|india|australia)\b/i;
+
         function createRegex(keywordArray) {
             const escapedWords = keywordArray.map(kw => kw.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'));
             return new RegExp('\\b(' + escapedWords.join('|') + ')\\b', 'i');
@@ -732,6 +739,8 @@
                     const searchText = (title + " " + description).toLowerCase();
 
                     if (regBlocklist.test(searchText) || regSummaryBlocklist.test(searchText) || regSoftNewsBlocklist.test(searchText) || firstPersonRegex.test(title)) return;
+                    if (obviousForeignRegex.test(searchText)) return;
+                    if (source.ukOnly && !ukRelevanceRegex.test(searchText)) return;
 
                     const parsedDate = new Date(item.pubDate || "").getTime();
                     const articleTimestamp = isNaN(parsedDate) ? Date.now() : parsedDate;
@@ -778,83 +787,37 @@
         // Fetch 2: TRENDS
         async function loadTrends() {
             const container = document.getElementById("feed-trends");
-            
-            const redditUrls = [
-                'https://www.reddit.com/r/ukpolitics/hot.rss',
-                'https://www.reddit.com/r/unitedkingdom/hot.rss',
-                'https://www.reddit.com/r/UKNews/hot.rss'
+            const cutoff = Date.now() - (18 * 60 * 60 * 1000);
+            const sources = [
+                { name: "Reddit UK Politics", url: "https://www.reddit.com/r/ukpolitics/hot.rss" },
+                { name: "Reddit UK", url: "https://www.reddit.com/r/unitedkingdom/hot.rss" },
+                { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain+OR+Westminster)+(politics+OR+economy+OR+NHS+OR+housing+OR+AI+OR+education+OR+climate)&hl=en-GB&gl=GB&ceid=GB:en" }
             ];
-            
+            const results = await Promise.all(sources.map(src => fetchRSS(src.name, src.url)));
             let allTrends = [];
-
-            const redditResults = await Promise.all(
-                redditUrls.map(rssUrl => fetchRSS("Reddit", rssUrl))
-            );
-            redditResults.flat().forEach(item => {
+            results.forEach((items, idx) => items.forEach(item => {
                 const title = item.title || "";
-                const lowerTitle = title.toLowerCase();
-                if (regTrendsFilter.test(lowerTitle) && !regBlocklist.test(lowerTitle) && !regBlogSpam.test(lowerTitle)) {
-                    allTrends.push({ title: title, link: item.link });
-                }
-            });
-
-            try {
-                const yesterday = new Date(Date.now() - 86400000);
-                const year = yesterday.getFullYear();
-                const month = String(yesterday.getMonth() + 1).padStart(2, '0');
-                const day = String(yesterday.getDate()).padStart(2, '0');
-                
-                const wikiApiUrl = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${year}/${month}/${day}`;
-                const wikiRes = await fetchWithTimeout(wikiApiUrl, 4000);
-                if (wikiRes.ok) {
-                    const wikiData = await wikiRes.json();
-                    const articles = wikiData.items[0]?.articles || [];
-                    
-                    const wikiStoplist = ["Main_Page", "Special:", "Search", "Wikipedia:", "Deaths_in_"];
-                    
-                    articles.forEach(art => {
-                        const cleanTitle = art.article.replace(/_/g, ' ');
-                        const lowerTitle = cleanTitle.toLowerCase();
-                        if (!wikiStoplist.some(s => art.article.includes(s)) && 
-                            regTrendsFilter.test(lowerTitle) && 
-                            !regBlocklist.test(lowerTitle)) {
-                            allTrends.push({
-                                title: cleanTitle,
-                                link: `https://en.wikipedia.org/wiki/${art.article}`
-                            });
-                        }
-                    });
-                }
-            } catch(e) {
-                console.warn("Wikimedia trends skipped.");
-            }
-
-            const uniqueTrends = [];
-            const seenTitles = [];
-            
+                const text = (title + " " + (item.description || "")).toLowerCase();
+                const ts = new Date(item.pubDate || 0).getTime();
+                if (!Number.isFinite(ts) || ts < cutoff) return;
+                if (regBlocklist.test(text) || regBlogSpam.test(text) || obviousForeignRegex.test(text)) return;
+                if (!regTrendsFilter.test(text) && !ukRelevanceRegex.test(text)) return;
+                allTrends.push({ title, link: item.link, timestamp: ts });
+            }));
+            allTrends.sort((a,b) => b.timestamp - a.timestamp);
+            const uniqueTrends = [], seenTitles = [];
             for (const t of allTrends) {
-                if (!isDuplicateTopic(t.title, seenTitles)) {
-                    uniqueTrends.push(t);
-                    seenTitles.push(t.title);
-                }
+                if (!isDuplicateTopic(t.title, seenTitles)) { uniqueTrends.push(t); seenTitles.push(t.title); }
+                if (uniqueTrends.length >= 5) break;
             }
-
-            const top5 = uniqueTrends.slice(0, 5);
-
-            container.innerHTML = ""; 
-            if (top5.length > 0) {
-                top5.forEach((item, index) => {
-                    const div = document.createElement("div");
-                    div.className = "trend-item";
-                    div.innerHTML = `
-                        <div class="trend-rank">#${index + 1}</div>
-                        <div class="trend-name"><a href="${item.link}" target="_blank">${item.title}</a></div>
-                    `;
+            container.innerHTML = "";
+            if (uniqueTrends.length) {
+                uniqueTrends.forEach((item,index) => {
+                    const div=document.createElement("div"); div.className="trend-item";
+                    div.innerHTML=`<div class="trend-rank">#${index+1}</div><div class="trend-name"><a href="${item.link}" target="_blank">${item.title}</a></div>`;
                     container.appendChild(div);
                 });
-            } else {
-                container.innerHTML = `<div class="empty-state">No major UK social media trends currently matching your policy filters.</div>`;
-            }
+            } else container.innerHTML = `<div class="empty-state">No major fresh UK trends currently matching your policy filters.</div>`;
         }
 
         // Fetch 3: MISSIONS
@@ -924,135 +887,55 @@
             missionData = { fairer: [], healthy: [], sustainable: [], economy: [], ai: [], devolution: [], housing: [] };
             const existingMissionTitles = { fairer: [], healthy: [], sustainable: [], economy: [], ai: [], devolution: [], housing: [] };
             
-            allMissionStories.forEach(story => {
-                const target = story.targetMission;
-                if (missionData[target].length < 10) {
-                    if (!isDuplicateTopic(story.title, existingMissionTitles[target])) {
-                        missionData[target].push(story);
-                        existingMissionTitles[target].push(story.title);
-                    }
+            // Keep news prioritised, but reserve up to two slots for relevant independent
+            // blog/commentary items so Substack and Medium are not crowded out by news.
+            for (const target of Object.keys(missionData)) {
+                const candidates = allMissionStories.filter(s => s.targetMission === target);
+                const news = candidates.filter(s => !s.isBlog);
+                const blogs = candidates.filter(s => s.isBlog);
+                const chosen = [];
+                const titles = [];
+                for (const story of news) {
+                    if (chosen.length >= 8) break;
+                    if (!isDuplicateTopic(story.title, titles)) { chosen.push(story); titles.push(story.title); }
                 }
-            });
+                for (const story of blogs) {
+                    if (chosen.length >= 10) break;
+                    if (!isDuplicateTopic(story.title, titles)) { chosen.push(story); titles.push(story.title); }
+                }
+                // If fewer than ten were found, fill remaining slots with any unused news.
+                for (const story of news) {
+                    if (chosen.length >= 10) break;
+                    if (!chosen.includes(story) && !isDuplicateTopic(story.title, titles)) { chosen.push(story); titles.push(story.title); }
+                }
+                missionData[target] = chosen;
+            }
         }
 
         // Fetch 4: LATEST NESTA BLOGS
-        // HTML-ONLY MODE: show a live-verified recent Nesta baseline immediately,
-        // then make one short background check for anything genuinely newer.
+        // Accuracy-first HTML-only mode. Google News dates are NOT used for Nesta because
+        // they can be re-index dates rather than the original publication date.
         const nestaSeedStories = [
-            {
-                title: "Obesity, inequality and the weekly shop: who stands to benefit from the healthy food standard?",
-                link: "https://www.nesta.org.uk/blog/obesity-inequality-and-the-weekly-shop/",
-                pubDate: "2026-09-09"
-            },
-            {
-                title: "What six numbers can tell us about the future of GLP-1 medications",
-                link: "https://www.nesta.org.uk/blog/what-six-numbers-can-tell-us-about-the-future-of-glp-1-medications/",
-                pubDate: "2026-09-08"
-            },
-            {
-                title: "How local authorities can use ASQ-3 data in delivering their Best Start in Life plans",
-                link: "https://www.nesta.org.uk/blog/how-local-authorities-can-use-asq-3-data-in-delivering-their-best-start-in-life-plans/",
-                pubDate: "2026-09-02"
-            },
-            {
-                title: "Quick wins and long-term fixes: how the UK government can create breathing space on the cost of living",
-                link: "https://www.nesta.org.uk/blog/how-the-uk-government-can-create-breathing-space-on-the-cost-of-living/",
-                pubDate: "2026-08-28"
-            },
-            {
-                title: "The energy edit: getting over the 2030 energy bill bump",
-                link: "https://www.nesta.org.uk/blog/the-energy-edit-5/",
-                pubDate: "2026-08-04"
-            }
+            { title: "Why the mandate for zero emissions vehicles needs to stay", link: "https://www.nesta.org.uk/blog/why-the-mandate-for-zero-emissions-vehicles-needs-to-stay/", pubDate: "2026-09-22" },
+            { title: "Five things Scotland can do to prevent the next energy crisis and best use its renewables windfall", link: "https://www.nesta.org.uk/blog/five-things-scotland-can-do-to-prevent-the-next-energy-crisis/", pubDate: "2026-09-18" },
+            { title: "Obesity, inequality and the weekly shop: who stands to benefit from the healthy food standard?", link: "https://www.nesta.org.uk/blog/obesity-inequality-and-the-weekly-shop/", pubDate: "2026-09-09" },
+            { title: "What six numbers can tell us about the future of GLP-1 medications", link: "https://www.nesta.org.uk/blog/what-six-numbers-can-tell-us-about-the-future-of-glp-1-medications/", pubDate: "2026-09-08" },
+            { title: "How local authorities can use ASQ-3 data in delivering their Best Start in Life plans", link: "https://www.nesta.org.uk/blog/how-local-authorities-can-use-asq-3-data-in-delivering-their-best-start-in-life-plans/", pubDate: "2026-09-02" }
         ];
-
         function renderNestaStories(stories) {
-            const container = document.getElementById("feed-nesta");
-            container.innerHTML = "";
-
-            stories.slice(0, 5).forEach(story => {
-                const div = document.createElement("div");
-                div.className = "news-card";
-
-                const storyDate = new Date(story.pubDate || Date.now());
-                const cleanDateStr = storyDate.toLocaleDateString("en-GB", {
-                    day:'numeric', month:'short', year:'numeric'
-                }).replace(/,/g, '');
-                const cleanTitle = String(story.title || "").replace(/<[^>]*>?/gm, '').trim();
-
-                div.innerHTML = `
-                    <div class="meta-info">
-                        <span class="source-badge" style="background-color: var(--nesta-dark-blue);">Nesta Blog</span>
-                        <span class="date-text">${cleanDateStr}</span>
-                    </div>
-                    <h4><a href="${story.link}" target="_blank" rel="noopener noreferrer"><strong>${cleanTitle}</strong></a></h4>
-                `;
+            const container=document.getElementById("feed-nesta"); container.innerHTML="";
+            stories.slice(0,5).forEach(story=>{
+                const div=document.createElement("div"); div.className="news-card";
+                const d=new Date(story.pubDate+"T12:00:00Z");
+                const ds=d.toLocaleDateString("en-GB",{day:'numeric',month:'short',year:'numeric'}).replace(/,/g,'');
+                div.innerHTML=`<div class="meta-info"><span class="source-badge" style="background-color: var(--nesta-dark-blue);">Nesta Blog</span><span class="date-text">${ds}</span></div><h4><a href="${story.link}" target="_blank" rel="noopener noreferrer"><strong>${story.title}</strong></a></h4>`;
                 container.appendChild(div);
             });
         }
-
         async function loadNestaBlogs() {
-            // Render immediately so this panel is fast and identical on every device.
+            // Deliberately do not overwrite these with Google News results: doing so caused
+            // the April theory-based-evaluation article to be falsely dated September.
             renderNestaStories(nestaSeedStories);
-
-            // Store a successful genuinely-newer item locally so subsequent opens on the
-            // same device can show it immediately without waiting for the network.
-            try {
-                const cached = JSON.parse(localStorage.getItem('nestaNewerBlogsV7') || '[]');
-                if (Array.isArray(cached) && cached.length) {
-                    const mergedCached = [...cached, ...nestaSeedStories]
-                        .sort((a,b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
-                    renderNestaStories(mergedCached);
-                }
-            } catch (_) {}
-
-            const newestVerified = new Date('2026-09-09T00:00:00Z').getTime();
-            const liveUrl = "https://news.google.com/rss/search?q=site%3Anesta.org.uk%2Fblog%2F+nesta&hl=en-GB&gl=GB&ceid=GB%3Aen";
-
-            try {
-                const liveItems = await fetchRSS("Nesta Blogs", liveUrl);
-                const newer = liveItems
-                    .filter(story => story && story.title && story.link && story.pubDate)
-                    .map(story => {
-                        const title = String(story.title)
-                            .replace(/<[^>]*>?/gm, '')
-                            .replace(/\s+-\s+Nesta(?:\s*\|.*)?$/i, '')
-                            .trim();
-                        return {
-                            ...story,
-                            title,
-                            timestamp: new Date(story.pubDate).getTime()
-                        };
-                    })
-                    .filter(story => Number.isFinite(story.timestamp) && story.timestamp > newestVerified)
-                    // Google News sometimes surfaces old Nesta pages with misleading dates.
-                    // Only accept titles explicitly attributed to Nesta in the original item.
-                    .filter((story, i) => {
-                        const originalTitle = String(liveItems[i]?.title || '');
-                        return /Nesta/i.test(originalTitle);
-                    });
-
-                if (!newer.length) return;
-
-                const seen = new Set();
-                const merged = [...newer, ...nestaSeedStories]
-                    .filter(story => {
-                        const key = String(story.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
-                        if (!key || seen.has(key)) return false;
-                        seen.add(key);
-                        return true;
-                    })
-                    .sort((a, b) => new Date(b.pubDate || b.timestamp || 0) - new Date(a.pubDate || a.timestamp || 0))
-                    .slice(0, 5);
-
-                // Cache only genuinely-newer items, not the Google News archive selection.
-                const cacheItems = merged.filter(s => new Date(s.pubDate || 0).getTime() > newestVerified);
-                try { localStorage.setItem('nestaNewerBlogsV7', JSON.stringify(cacheItems)); } catch (_) {}
-
-                renderNestaStories(merged);
-            } catch (error) {
-                console.warn("Nesta background check skipped; keeping live-verified list.", error);
-            }
         }
 
         // --- 6. RENDER LOGIC ---
