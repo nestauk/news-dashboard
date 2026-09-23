@@ -706,6 +706,20 @@
         
         const firstPersonRegex = /^['"‘“]?(I |My |Why I |How I |We tried |I went )/i;
 
+        // Independent-analysis quality gate: keep substantive policy/industry/research
+        // writing, reject personal tutorials, listicles and clickbait.
+        const analysisClickbaitRegex = /\b(\d+\s+(tricks?|tips?|hacks?|secrets?|ways?|things?|prompts?|tools?)|feel(?:s|ing)? almost too|you need to know|must[- ]?know|game[- ]?changer|blow your mind|unfair advantage|ultimate guide|complete guide|beginner(?:'s)? guide|how i (?:use|used|built|made|got)|i tried|i tested|here(?:'s| is) how|better than chatgpt|make money|side hustle|productivity hack|prompt engineering tips)\b/i;
+        const analysisTutorialRegex = /\b(how to use|step[- ]by[- ]step|tutorial|cheat sheet|template|workflow|coding with|build your first|getting started with|top \d+|best \d+)\b/i;
+        const analysisSubstanceRegex = /\b(policy|regulation|government|parliament|public sector|economy|economic|productivity|labour market|jobs|employment|investment|industry|market|competition|governance|safety|research|evidence|study|report|analysis|infrastructure|energy|climate|housing|planning|health|obesity|education|childcare|inequality|devolution|local government|funding|tax|spending|AI act|copyright|compute|data centre|adoption|standards|institutions?)\b/i;
+
+        function passesAnalysisQuality(title, description) {
+            const text = ((title || "") + " " + (description || "")).replace(/<[^>]*>/g, " ");
+            if (analysisClickbaitRegex.test(title || "") || analysisTutorialRegex.test(title || "")) return false;
+            // Curated Substacks/The Conversation can pass on topic relevance; broad Medium
+            // feeds must also demonstrate substantive public-interest/industry relevance.
+            return analysisSubstanceRegex.test(text);
+        }
+
         let missionData = { fairer: [], healthy: [], sustainable: [], economy: [], ai: [], devolution: [], housing: [] };
         let rotationTimer = null;
         let currentRotationIndex = 0;
@@ -800,17 +814,32 @@
                 const representative = cluster.items[0];
                 const distinctSources = new Set(cluster.items.map(x => x.source));
                 const ageHours = Math.max(0, (now - representative.timestamp) / 3600000);
-                const corroboration = Math.min(30, (distinctSources.size - 1) * 15);
-                const recency = Math.max(0, 22 - ageHours);
+                const corroboration = Math.min(24, (distinctSources.size - 1) * 12);
+                // "Now" means now: freshness dominates. Older stories need exceptional
+                // corroboration/significance to survive, and >16h is fallback-only.
+                let recency = 0;
+                if (ageHours <= 2) recency = 44;
+                else if (ageHours <= 4) recency = 38;
+                else if (ageHours <= 8) recency = 28;
+                else if (ageHours <= 12) recency = 16;
+                else if (ageHours <= 16) recency = 5;
+                else recency = -25;
                 const outlet = Math.max(...cluster.items.map(x => majorOutletWeight[x.source] || 1));
                 const text = cluster.items.map(x => x.title).join(" ");
                 const hardNews = hardNewsRegex.test(text) ? 10 : 0;
                 const routinePenalty = routineOfficialRegex.test(text) ? 35 : 0;
-                return { ...representative, score: corroboration + recency + outlet + hardNews - routinePenalty };
+                return { ...representative, ageHours, score: corroboration + recency + outlet + hardNews - routinePenalty };
             });
 
             ranked.sort((a,b) => b.score - a.score || b.timestamp - a.timestamp);
-            const top5 = ranked.slice(0,5);
+            // Prefer a genuinely live slate. Only use 16-24h material if fewer than five
+            // credible stories are available inside the live window.
+            const liveRanked = ranked.filter(s => s.ageHours <= 16);
+            const fallbackRanked = ranked.filter(s => s.ageHours > 16 && s.ageHours <= 24);
+            const top5 = [...liveRanked.slice(0,5)];
+            if (top5.length < 5) {
+                top5.push(...fallbackRanked.slice(0, 5 - top5.length));
+            }
             
             if(top5.length === 0) {
                 container.innerHTML = `<div class="empty-state">Unable to load Top Stories at this time. Will retry shortly.</div>`;
@@ -892,6 +921,9 @@
                         
                         if (regBlocklist.test(lowerTitle) || regBlogSpam.test(lowerTitle) || regSoftNewsBlocklist.test(lowerTitle)) return;
 
+                        const sourceType = source.sourceType || "news";
+                        if (sourceType === "analysis" && !passesAnalysisQuality(title, description)) return;
+
                         let targetMission = null;
                         
                         if (regexes.fairer.test(lowerTitle)) targetMission = "fairer";
@@ -917,7 +949,6 @@
                         
                         if (targetMission) {
                             if (!allMissionStories.some(s => s.link === item.link)) {
-                                const sourceType = source.sourceType || "news";
                                 allMissionStories.push({
                                     title: item.title, link: item.link, source: source.name,
                                     targetMission, timestamp: articleTimestamp,
