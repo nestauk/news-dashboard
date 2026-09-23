@@ -494,7 +494,7 @@
 
         const topNewsSources = [
             { name: "BBC News", url: "https://feeds.bbci.co.uk/news/uk/rss.xml", ukOnly: false },
-            { name: "The Guardian", url: "https://www.theguardian.com/uk/rss", ukOnly: false },
+            { name: "The Guardian", url: "https://www.theguardian.com/uk-news/rss", ukOnly: false },
             { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain+OR+British+OR+England+OR+Scotland+OR+Wales+OR+%22Northern+Ireland%22+OR+Westminster)&hl=en-GB&gl=GB&ceid=GB:en", ukOnly: true }
         ];
 
@@ -785,7 +785,11 @@
             // Editorial ranking: cluster different outlets covering the same underlying story,
             // then reward agenda prominence rather than simply taking the five newest links.
             const routineOfficialRegex = /\b(have your say|consultation|joint declaration|memorandum of understanding|guidance|statutory guidance|notice|procurement|tender|appointments?|ministerial appointment|government response|call for evidence|roadside rubbish|press release)\b/i;
+            // Top Stories is a hard-news desk: exclude reviews, culture/lifestyle,
+            // opinion formats and other material that can leak into broad UK feeds.
+            const nonNewsFormatRegex = /\b(review|reviewed|tv review|television review|film review|book review|theatre review|album review|arts review|digested read|podcast|newsletter|opinion|comment|commentary|columnist|recipe|recipes|what to watch|best tv|best shows?|must-watch|streaming|episode|season finale|celebrity|entertainment|culture|fashion|food|travel|quiz|crossword)\b/i;
             const hardNewsRegex = /\b(dead|dies|killed|death|fire|murder|attack|arrest|resign|resignation|speech|conference|budget|borrowing|debt|deficit|inflation|interest rate|tax|taxes|spending|economy|gdp|unemployment|nhs|hospital|strike|court|police|election|parliament|government|prime minister|chancellor|party leader|lib dem|labour|conservative|reform uk|crisis|emergency|investigation)\b/i;
+            stories = stories.filter(story => !nonNewsFormatRegex.test(story.title || ""));
             const majorOutletWeight = { "BBC News": 5, "The Guardian": 4, "Google News UK": 1 };
 
             function editorialWords(title) {
@@ -821,9 +825,9 @@
                 if (ageHours <= 2) recency = 44;
                 else if (ageHours <= 4) recency = 38;
                 else if (ageHours <= 8) recency = 28;
-                else if (ageHours <= 12) recency = 16;
-                else if (ageHours <= 16) recency = 5;
-                else recency = -25;
+                else if (ageHours <= 10) recency = 18;
+                else if (ageHours <= 12) recency = 7;
+                else recency = -60;
                 const outlet = Math.max(...cluster.items.map(x => majorOutletWeight[x.source] || 1));
                 const text = cluster.items.map(x => x.title).join(" ");
                 const hardNews = hardNewsRegex.test(text) ? 10 : 0;
@@ -832,14 +836,9 @@
             });
 
             ranked.sort((a,b) => b.score - a.score || b.timestamp - a.timestamp);
-            // Prefer a genuinely live slate. Only use 16-24h material if fewer than five
-            // credible stories are available inside the live window.
-            const liveRanked = ranked.filter(s => s.ageHours <= 16);
-            const fallbackRanked = ranked.filter(s => s.ageHours > 16 && s.ageHours <= 24);
-            const top5 = [...liveRanked.slice(0,5)];
-            if (top5.length < 5) {
-                top5.push(...fallbackRanked.slice(0, 5 - top5.length));
-            }
+            // A panel labelled "Now" should stay live. Do not pad it with yesterday's
+            // agenda merely to reach five items: show fewer stories if necessary.
+            const top5 = ranked.filter(s => s.ageHours <= 12).slice(0,5);
             
             if(top5.length === 0) {
                 container.innerHTML = `<div class="empty-state">Unable to load Top Stories at this time. Will retry shortly.</div>`;
