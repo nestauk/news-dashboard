@@ -499,22 +499,39 @@
         ];
 
         const missionSources = [
-            { name: "BBC News", url: "https://feeds.bbci.co.uk/news/uk/rss.xml" },
-            { name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/home.xml" },
-            { name: "The Guardian", url: "https://www.theguardian.com/uk/rss" },
-            { name: "The Conversation", url: "https://theconversation.com/uk/articles.atom" },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(childcare+OR+%22early+years%22+OR+%22child+poverty%22+OR+nursery+OR+ofsted)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(obesity+OR+%22junk+food%22+OR+wegovy+OR+ozempic+OR+%22sugar+tax%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22heat+pump%22+OR+%22net+zero%22+OR+decarbonisation+OR+%22green+energy%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(economy+OR+inflation+OR+gdp+OR+%22interest+rates%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22artificial+intelligence%22+OR+AI+OR+ChatGPT+OR+OpenAI+OR+Anthropic+OR+Claude+OR+Gemini+OR+%22Google+DeepMind%22+OR+DeepMind+OR+xAI+OR+Grok+OR+%22Meta+AI%22+OR+Llama+OR+Mistral+OR+Cohere+OR+Perplexity+OR+DeepSeek+OR+Qwen+OR+Nvidia+OR+%22Microsoft+Copilot%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22AI+agent%22+OR+%22AI+agents%22+OR+agentic+OR+LLM+OR+%22large+language+model%22+OR+%22foundation+model%22+OR+multimodal+OR+%22reasoning+model%22+OR+%22open-weight%22+OR+%22open+source+AI%22+OR+RAG+OR+%22synthetic+data%22+OR+%22AI+compute%22+OR+%22AI+chips%22+OR+GPU+OR+%22data+centre%22+OR+%22data+center%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22AI+safety%22+OR+%22AI+regulation%22+OR+%22AI+governance%22+OR+%22frontier+AI%22+OR+AGI+OR+superintelligence+OR+alignment+OR+%22AI+copyright%22+OR+deepfake+OR+%22AI+jobs%22+OR+%22AI+productivity%22+OR+%22AI+adoption%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "TES", url: "https://news.google.com/rss/search?q=site%3Ates.com%2Fmagazine+(UK+OR+England)+(%22early+years%22+OR+childcare+OR+nursery+OR+primary+OR+Ofsted+OR+SEND+OR+%22school+funding%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Substack Blog", url: "https://news.google.com/rss/search?q=site%3Asubstack.com+(UK+OR+Britain)+(policy+OR+politics+OR+childcare+OR+health+OR+climate+OR+economy+OR+AI+OR+devolution+OR+housing)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Medium Blog", url: "https://news.google.com/rss/search?q=site%3Amedium.com+(UK+OR+Britain)+(policy+OR+politics+OR+childcare+OR+health+OR+climate+OR+economy+OR+AI+OR+devolution+OR+housing)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(devolution+OR+%22metro+mayor%22+OR+%22local+government%22)&hl=en-GB&gl=GB&ceid=GB:en" },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(housing+OR+%22house+building%22+OR+%22affordable+housing%22+OR+mortgages)&hl=en-GB&gl=GB&ceid=GB:en" }
+            // Mainstream news — still the primary source class.
+            { name: "BBC News", url: "https://feeds.bbci.co.uk/news/uk/rss.xml", sourceType: "news" },
+            { name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/home.xml", sourceType: "news" },
+            { name: "The Guardian", url: "https://www.theguardian.com/uk/rss", sourceType: "news" },
+            { name: "The Conversation", url: "https://theconversation.com/uk/articles.atom", sourceType: "analysis" },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(childcare+OR+%22early+years%22+OR+%22child+poverty%22+OR+nursery+OR+ofsted)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(obesity+OR+%22junk+food%22+OR+wegovy+OR+ozempic+OR+%22sugar+tax%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22heat+pump%22+OR+%22net+zero%22+OR+decarbonisation+OR+%22green+energy%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(economy+OR+inflation+OR+gdp+OR+%22interest+rates%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22artificial+intelligence%22+OR+AI+OR+ChatGPT+OR+OpenAI+OR+Anthropic+OR+Claude+OR+Gemini+OR+%22Google+DeepMind%22+OR+DeepMind+OR+xAI+OR+Grok+OR+%22Meta+AI%22+OR+Llama+OR+Mistral+OR+Cohere+OR+Perplexity+OR+DeepSeek+OR+Qwen+OR+Nvidia+OR+%22Microsoft+Copilot%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22AI+agent%22+OR+%22AI+agents%22+OR+agentic+OR+LLM+OR+%22large+language+model%22+OR+%22foundation+model%22+OR+multimodal+OR+%22reasoning+model%22+OR+%22open-weight%22+OR+%22AI+compute%22+OR+%22AI+chips%22+OR+GPU+OR+%22data+centre%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News AI", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(%22AI+safety%22+OR+%22AI+regulation%22+OR+%22AI+governance%22+OR+%22frontier+AI%22+OR+AGI+OR+superintelligence+OR+alignment+OR+%22AI+copyright%22+OR+deepfake+OR+%22AI+jobs%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "TES", url: "https://news.google.com/rss/search?q=site%3Ates.com%2Fmagazine+(UK+OR+England)+(%22early+years%22+OR+childcare+OR+nursery+OR+primary+OR+Ofsted+OR+SEND+OR+%22school+funding%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(devolution+OR+%22metro+mayor%22+OR+%22local+government%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain)+AND+(housing+OR+%22house+building%22+OR+%22affordable+housing%22+OR+mortgages)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "news" },
+
+            // Commons/select-committee output. Google News is used only as a browser-safe
+            // discovery transport; the query is restricted to official Parliament domains.
+            { name: "UK Parliament", url: "https://news.google.com/rss/search?q=(site%3Acommittees.parliament.uk+OR+site%3Apublications.parliament.uk)+(%22select+committee%22+OR+report+OR+inquiry+OR+evidence+OR+%22government+response%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "parliament" },
+            { name: "UK Parliament", url: "https://news.google.com/rss/search?q=site%3Acommittees.parliament.uk+(education+OR+health+OR+treasury+OR+energy+OR+housing+OR+AI+OR+technology+OR+%22local+government%22)&hl=en-GB&gl=GB&ceid=GB:en", sourceType: "parliament" },
+
+            // Direct independent-analysis feeds. These avoid depending on Google indexing
+            // Medium/Substack and are subsequently filtered by the same topic dictionaries.
+            { name: "Medium", url: "https://medium.com/feed/tag/uk-politics", sourceType: "analysis" },
+            { name: "Medium", url: "https://medium.com/feed/tag/public-policy", sourceType: "analysis" },
+            { name: "Medium", url: "https://medium.com/feed/tag/artificial-intelligence", sourceType: "analysis" },
+            { name: "Medium", url: "https://medium.com/feed/tag/climate-change", sourceType: "analysis" },
+            { name: "Model Economy · Substack", url: "https://modeleconomy.substack.com/feed", sourceType: "analysis" },
+            { name: "Build More Houses · Substack", url: "https://jamesrowlands.substack.com/feed", sourceType: "analysis" },
+            { name: "Saltmarsh Economics · Substack", url: "https://saltmarsheconomics.substack.com/feed", sourceType: "analysis" },
+            { name: "Perennial Gale · Substack", url: "https://perennialgale.substack.com/feed", sourceType: "analysis" },
+            { name: "Changing Tides · Substack", url: "https://tidecentre.substack.com/feed", sourceType: "analysis" },
+            { name: "We Are In Beta · Substack", url: "https://weareinbeta.substack.com/feed", sourceType: "analysis" }
         ];
 
         // 7 THEMATIC DICTIONARIES
@@ -900,10 +917,11 @@
                         
                         if (targetMission) {
                             if (!allMissionStories.some(s => s.link === item.link)) {
-                                const isBlog = source.name.includes("Substack") || source.name.includes("Medium");
+                                const sourceType = source.sourceType || "news";
                                 allMissionStories.push({
-                                    title: item.title, link: item.link, source: source.name, 
-                                    targetMission, timestamp: articleTimestamp, isBlog: isBlog
+                                    title: item.title, link: item.link, source: source.name,
+                                    targetMission, timestamp: articleTimestamp,
+                                    sourceType, isBlog: sourceType === "analysis"
                                 });
                             }
                         }
@@ -911,36 +929,45 @@
                 });
             });
             
-            allMissionStories.sort((a, b) => {
-                if (a.isBlog !== b.isBlog) return a.isBlog ? 1 : -1;
-                return b.timestamp - a.timestamp;
-            });
+            // Within each source class, newest first. Composition is handled below so
+            // Parliament and independent analysis cannot be crowded out by news volume.
+            allMissionStories.sort((a, b) => b.timestamp - a.timestamp);
 
             missionData = { fairer: [], healthy: [], sustainable: [], economy: [], ai: [], devolution: [], housing: [] };
-            const existingMissionTitles = { fairer: [], healthy: [], sustainable: [], economy: [], ai: [], devolution: [], housing: [] };
-            
-            // Keep news prioritised, but reserve up to two slots for relevant independent
-            // blog/commentary items so Substack and Medium are not crowded out by news.
+
+            // Target mix per rotating panel: up to 6 news + 2 Parliament + 2 independent
+            // analysis. Empty reserved slots are back-filled with the best remaining items.
             for (const target of Object.keys(missionData)) {
                 const candidates = allMissionStories.filter(s => s.targetMission === target);
-                const news = candidates.filter(s => !s.isBlog);
-                const blogs = candidates.filter(s => s.isBlog);
+                const news = candidates.filter(s => s.sourceType === "news");
+                const parliament = candidates.filter(s => s.sourceType === "parliament");
+                const analysis = candidates.filter(s => s.sourceType === "analysis");
                 const chosen = [];
                 const titles = [];
-                for (const story of news) {
-                    if (chosen.length >= 8) break;
-                    if (!isDuplicateTopic(story.title, titles)) { chosen.push(story); titles.push(story.title); }
+
+                function takeFrom(pool, maxToTake) {
+                    let taken = 0;
+                    for (const story of pool) {
+                        if (chosen.length >= 10 || taken >= maxToTake) break;
+                        if (!isDuplicateTopic(story.title, titles)) {
+                            chosen.push(story);
+                            titles.push(story.title);
+                            taken++;
+                        }
+                    }
                 }
-                for (const story of blogs) {
-                    if (chosen.length >= 10) break;
-                    if (!isDuplicateTopic(story.title, titles)) { chosen.push(story); titles.push(story.title); }
-                }
-                // If fewer than ten were found, fill remaining slots with any unused news.
-                for (const story of news) {
-                    if (chosen.length >= 10) break;
-                    if (!chosen.includes(story) && !isDuplicateTopic(story.title, titles)) { chosen.push(story); titles.push(story.title); }
-                }
-                missionData[target] = chosen;
+
+                takeFrom(news, 6);
+                takeFrom(parliament, 2);
+                takeFrom(analysis, 2);
+
+                // Back-fill only after each source class has had its reserved opportunity.
+                const leftovers = candidates.filter(s => !chosen.includes(s));
+                takeFrom(leftovers, 10 - chosen.length);
+
+                // Keep the selected set readable in reverse chronology rather than grouping
+                // it visually by source class.
+                missionData[target] = chosen.sort((a, b) => b.timestamp - a.timestamp);
             }
         }
 
