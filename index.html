@@ -493,9 +493,16 @@
         // --- 3. SOURCES & CONFIGURATION ---
 
         const topNewsSources = [
+            // Equal editorial weight across the main UK newsrooms. Google News remains
+            // a discovery backstop only and is deliberately given less influence below.
             { name: "BBC News", url: "https://feeds.bbci.co.uk/news/uk/rss.xml", ukOnly: false },
+            { name: "Sky News", url: "https://feeds.skynews.com/feeds/rss/uk.xml", ukOnly: false },
+            { name: "ITV News", url: "https://www.itv.com/news/index.rss", ukOnly: false },
             { name: "The Guardian", url: "https://www.theguardian.com/uk-news/rss", ukOnly: false },
-            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain+OR+British+OR+England+OR+Scotland+OR+Wales+OR+%22Northern+Ireland%22+OR+Westminster)&hl=en-GB&gl=GB&ceid=GB:en", ukOnly: true }
+            // The Times does not expose a dependable browser-friendly UK RSS endpoint,
+            // so discover only current Times UK stories through Google News.
+            { name: "The Times", url: "https://news.google.com/rss/search?q=site%3Athetimes.com%2Fuk+(UK+OR+Britain+OR+England+OR+Scotland+OR+Wales+OR+%22Northern+Ireland%22+OR+Westminster)+when%3A1d&hl=en-GB&gl=GB&ceid=GB:en", ukOnly: true },
+            { name: "Google News UK", url: "https://news.google.com/rss/search?q=(UK+OR+Britain+OR+British+OR+England+OR+Scotland+OR+Wales+OR+%22Northern+Ireland%22+OR+Westminster)+when%3A1d&hl=en-GB&gl=GB&ceid=GB:en", ukOnly: true }
         ];
 
         const missionSources = [
@@ -790,19 +797,28 @@
             const nonNewsFormatRegex = /\b(review|reviewed|tv review|television review|film review|book review|theatre review|album review|arts review|digested read|podcast|newsletter|opinion|comment|commentary|columnist|recipe|recipes|what to watch|best tv|best shows?|must-watch|streaming|episode|season finale|celebrity|entertainment|culture|fashion|food|travel|quiz|crossword)\b/i;
             const hardNewsRegex = /\b(dead|dies|killed|death|fire|murder|attack|arrest|resign|resignation|speech|conference|budget|borrowing|debt|deficit|inflation|interest rate|tax|taxes|spending|economy|gdp|unemployment|nhs|hospital|strike|court|police|election|parliament|government|prime minister|chancellor|party leader|lib dem|labour|conservative|reform uk|crisis|emergency|investigation)\b/i;
             stories = stories.filter(story => !nonNewsFormatRegex.test(story.title || ""));
-            const majorOutletWeight = { "BBC News": 5, "The Guardian": 4, "Google News UK": 1 };
+            // BBC, Sky, ITV, The Times and Guardian have identical editorial weight.
+            // Google News is only a discovery backstop, not a newsroom vote.
+            const majorOutletWeight = { "BBC News": 5, "Sky News": 5, "ITV News": 5, "The Times": 5, "The Guardian": 5, "Google News UK": 1 };
 
             function editorialWords(title) {
                 const stop = new Set(["the","and","for","with","from","into","over","after","before","amid","says","said","say","uk","britain","british","today","latest","live","news","new","government"]);
-                return (title || "").toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/)
+                return (title || "").toLowerCase()
+                    .replace(/[’']/g, "")
+                    .replace(/[^a-z0-9\s-]/g, " ")
+                    .split(/\s+/)
+                    .map(w => w.replace(/(ing|ed|es|s)$/, ""))
                     .filter(w => w.length >= 4 && !stop.has(w));
             }
             function sameEditorialStory(a, b) {
                 const aw = editorialWords(a.title), bw = editorialWords(b.title);
                 const common = aw.filter(w => bw.includes(w));
                 if (common.length >= 3) return true;
-                // Two distinctive shared words is enough for shorter headlines.
-                return common.length >= 2 && Math.min(aw.length, bw.length) <= 7;
+                // Two distinctive shared terms can identify the same event even when
+                // different newsrooms write very different headlines. Require them to
+                // account for a meaningful share of at least one headline.
+                const overlap = common.length / Math.max(1, Math.min(aw.length, bw.length));
+                return common.length >= 2 && overlap >= 0.40;
             }
 
             const clusters = [];
