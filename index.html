@@ -796,16 +796,30 @@
             // opinion formats and other material that can leak into broad UK feeds.
             const nonNewsFormatRegex = /\b(review|reviewed|tv review|television review|film review|book review|theatre review|album review|arts review|digested read|podcast|newsletter|opinion|comment|commentary|columnist|recipe|recipes|what to watch|best tv|best shows?|must-watch|streaming|episode|season finale|celebrity|entertainment|culture|fashion|food|travel|quiz|crossword)\b/i;
             const hardNewsRegex = /\b(dead|dies|killed|death|fire|murder|attack|arrest|resign|resignation|speech|conference|budget|borrowing|debt|deficit|inflation|interest rate|tax|taxes|spending|economy|gdp|unemployment|nhs|hospital|strike|court|police|election|parliament|government|prime minister|chancellor|party leader|lib dem|labour|conservative|reform uk|crisis|emergency|investigation)\b/i;
-            // Hard exclusion for sports results and sports-section links in Top UK Stories.
-            // Keep this separate from the broad topic blocklist: short score headlines
-            // such as "Chelsea 2-1 Arsenal" otherwise slip through.
-            const topSportTitleRegex = /\b(football|premier league|champions league|europa league|fa cup|carabao cup|world cup qualifier|rugby|cricket|tennis|wimbledon|grand prix|formula one|formula 1|f1|boxing|golf|snooker|darts|olympics|paralympics|match report|match result|full[- ]time|half[- ]time|penalty shootout|hat[- ]trick|goalkeeper|striker|manager sacked|transfer window|fixture|fixtures|scoreline|scores?|goals?|defeat|beat|beats|thrash|thrashed|draws?|win|wins|won|lose|loses|lost|chelsea|arsenal|liverpool|manchester united|man utd|manchester city|man city|tottenham|spurs|newcastle united|real madrid|barcelona)\b/i;
-            const topSportUrlRegex = /\/(sport|sports|football|cricket|rugby|tennis|f1|formula-1|boxing|golf)(\/|\?|$)/i;
-            stories = stories.filter(story =>
-                !nonNewsFormatRegex.test(story.title || "") &&
-                !topSportTitleRegex.test(story.title || "") &&
-                !topSportUrlRegex.test(story.link || "")
-            );
+            // Hard sports exclusion for Top UK Stories.
+            // This panel is deliberately general-news only: sport remains excluded even
+            // when a publisher files a sports story under UK, Money or another section.
+            const topSportTitleRegex = /\b(sport|sports|football|soccer|premier league|champions league|europa league|conference league|fa cup|carabao cup|league cup|world cup|qualifier|uefa|fifa|rugby|six nations|cricket|ashes|test match|county championship|hundred|tennis|wimbledon|us open|australian open|french open|grand slam|formula one|formula 1|f1|grand prix|motorsport|boxing|boxer|bout|fight night|heavyweight|middleweight|lightweight|ufc|mma|golf|ryder cup|open championship|snooker|darts|cycling|tour de france|athletics|olympics|paralympics|horse racing|grand national|cheltenham|jockey|greyhound|basketball|nba|nfl|super bowl|baseball|mlb|ice hockey|nhl|match report|match result|full[- ]time|half[- ]time|penalty shootout|penalties|hat[- ]trick|goalkeeper|striker|midfielder|defender|manager sacked|head coach|transfer window|transfer fee|fixture|fixtures|scoreline|kick[- ]off|red card|yellow card|clean sheet|league table|relegation|promotion|play[- ]offs?|semi[- ]final|quarter[- ]final|finalists?|tournament|championship title|season opener|injury time|extra time|offside|chelsea|arsenal|liverpool|everton|manchester united|man utd|manchester city|man city|tottenham|spurs|newcastle united|aston villa|west ham|nottingham forest|leeds united|sunderland|real madrid|barcelona|celtic|rangers|england squad|scotland squad|wales squad|lionesses|joshua|fury)\b/i;
+            const topSportResultRegex = /\b(?:beats?|beat|defeats?|defeat|thrashes?|thrash|draws?|draw|wins?|won|loses?|lost|victory|loss)\b.*\b(?:match|game|tie|fixture|cup|league|final|semi-final|quarter-final|title|championship|tournament)\b|\b\d+\s*[-–]\s*\d+\b/i;
+            const topSportUrlRegex = /\/(sport|sports|football|soccer|cricket|rugby|tennis|formula-?1|f1|boxing|golf|snooker|darts|cycling|racing|athletics|olympics|paralympics)(\/|[-?]|$)/i;
+            const topSportSourceCategoryRegex = /\b(sport|sports|football|cricket|rugby|tennis|boxing|golf|racing)\b/i;
+
+            stories = stories.filter(story => {
+                const title = story.title || "";
+                const link = story.link || "";
+                const categoryText = [
+                    story.category,
+                    story.categories,
+                    story.description && /(?:Sport|Football|Cricket|Rugby|Tennis|Boxing|Golf)/i.test(story.description)
+                        ? story.description.slice(0, 250)
+                        : ""
+                ].filter(Boolean).join(" ");
+                return !nonNewsFormatRegex.test(title) &&
+                    !topSportTitleRegex.test(title) &&
+                    !topSportResultRegex.test(title) &&
+                    !topSportUrlRegex.test(link) &&
+                    !topSportSourceCategoryRegex.test(categoryText);
+            });
             // BBC, Sky, ITV, The Times and Guardian have identical editorial weight.
             // Google News is only a discovery backstop, not a newsroom vote.
             const majorOutletWeight = { "BBC News": 5, "Sky News": 5, "ITV News": 5, "The Times": 5, "The Guardian": 5, "Google News UK": 1 };
