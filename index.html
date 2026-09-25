@@ -796,7 +796,16 @@
             // opinion formats and other material that can leak into broad UK feeds.
             const nonNewsFormatRegex = /\b(review|reviewed|tv review|television review|film review|book review|theatre review|album review|arts review|digested read|podcast|newsletter|opinion|comment|commentary|columnist|recipe|recipes|what to watch|best tv|best shows?|must-watch|streaming|episode|season finale|celebrity|entertainment|culture|fashion|food|travel|quiz|crossword)\b/i;
             const hardNewsRegex = /\b(dead|dies|killed|death|fire|murder|attack|arrest|resign|resignation|speech|conference|budget|borrowing|debt|deficit|inflation|interest rate|tax|taxes|spending|economy|gdp|unemployment|nhs|hospital|strike|court|police|election|parliament|government|prime minister|chancellor|party leader|lib dem|labour|conservative|reform uk|crisis|emergency|investigation)\b/i;
-            stories = stories.filter(story => !nonNewsFormatRegex.test(story.title || ""));
+            // Hard exclusion for sports results and sports-section links in Top UK Stories.
+            // Keep this separate from the broad topic blocklist: short score headlines
+            // such as "Chelsea 2-1 Arsenal" otherwise slip through.
+            const topSportTitleRegex = /\b(football|premier league|champions league|europa league|fa cup|carabao cup|world cup qualifier|rugby|cricket|tennis|wimbledon|grand prix|formula one|formula 1|f1|boxing|golf|snooker|darts|olympics|paralympics|match report|match result|full[- ]time|half[- ]time|penalty shootout|hat[- ]trick|goalkeeper|striker|manager sacked|transfer window|fixture|fixtures|scoreline|scores?|goals?|defeat|beat|beats|thrash|thrashed|draws?|win|wins|won|lose|loses|lost|chelsea|arsenal|liverpool|manchester united|man utd|manchester city|man city|tottenham|spurs|newcastle united|real madrid|barcelona)\b/i;
+            const topSportUrlRegex = /\/(sport|sports|football|cricket|rugby|tennis|f1|formula-1|boxing|golf)(\/|\?|$)/i;
+            stories = stories.filter(story =>
+                !nonNewsFormatRegex.test(story.title || "") &&
+                !topSportTitleRegex.test(story.title || "") &&
+                !topSportUrlRegex.test(story.link || "")
+            );
             // BBC, Sky, ITV, The Times and Guardian have identical editorial weight.
             // Google News is only a discovery backstop, not a newsroom vote.
             const majorOutletWeight = { "BBC News": 5, "Sky News": 5, "ITV News": 5, "The Times": 5, "The Guardian": 5, "Google News UK": 1 };
@@ -1018,15 +1027,34 @@
         }
 
         // Fetch 4: LATEST NESTA BLOGS
-        // Accuracy-first HTML-only mode. Google News dates are NOT used for Nesta because
-        // they can be re-index dates rather than the original publication date.
+        // Automatic HTML-only mode: render the verified fallback immediately, then
+        // discover new Nesta blog URLs through Google News RSS. Google News dates are
+        // used ONLY to identify likely new candidates; a known Nesta date always wins.
         const nestaSeedStories = [
+            { title: "Five things the UK government should do to boost confidence in heat pumps", link: "https://www.nesta.org.uk/blog/five-things-the-uk-government-should-do-to-boost-confidence-in-heat-pumps/", pubDate: "2026-09-25" },
             { title: "Why the mandate for zero emissions vehicles needs to stay", link: "https://www.nesta.org.uk/blog/why-the-mandate-for-zero-emissions-vehicles-needs-to-stay/", pubDate: "2026-09-22" },
             { title: "Five things Scotland can do to prevent the next energy crisis and best use its renewables windfall", link: "https://www.nesta.org.uk/blog/five-things-scotland-can-do-to-prevent-the-next-energy-crisis/", pubDate: "2026-09-18" },
+            { title: "Four things Senedd committees should scrutinise on Welsh home heating", link: "https://www.nesta.org.uk/blog/four-things-senedd-committees-should-scrutinise-on-welsh-home-heating/", pubDate: "2026-09-18" },
             { title: "Obesity, inequality and the weekly shop: who stands to benefit from the healthy food standard?", link: "https://www.nesta.org.uk/blog/obesity-inequality-and-the-weekly-shop/", pubDate: "2026-09-09" },
-            { title: "What six numbers can tell us about the future of GLP-1 medications", link: "https://www.nesta.org.uk/blog/what-six-numbers-can-tell-us-about-the-future-of-glp-1-medications/", pubDate: "2026-09-08" },
-            { title: "How local authorities can use ASQ-3 data in delivering their Best Start in Life plans", link: "https://www.nesta.org.uk/blog/how-local-authorities-can-use-asq-3-data-in-delivering-their-best-start-in-life-plans/", pubDate: "2026-09-02" }
+            { title: "What six numbers can tell us about the future of GLP-1 medications", link: "https://www.nesta.org.uk/blog/what-six-numbers-can-tell-us-about-the-future-of-glp-1-medications/", pubDate: "2026-09-08" }
         ];
+
+        const nestaDiscoveryFeed = "https://news.google.com/rss/search?q=site%3Anesta.org.uk%2Fblog%2F+when%3A7d&hl=en-GB&gl=GB&ceid=GB%3Aen";
+
+        function cleanNestaTitle(title) {
+            return (title || "").replace(/\s+-\s+Nesta\s*$/i, "").trim();
+        }
+
+        function normaliseNestaUrl(url) {
+            try {
+                const u = new URL(url);
+                if (!/(^|\.)nesta\.org\.uk$/i.test(u.hostname)) return "";
+                const match = u.pathname.match(/^\/blog\/[^/?#]+\/?$/i);
+                if (!match) return "";
+                return `https://www.nesta.org.uk${u.pathname.endsWith('/') ? u.pathname : u.pathname + '/'}`;
+            } catch (_) { return ""; }
+        }
+
         function renderNestaStories(stories) {
             const container=document.getElementById("feed-nesta"); container.innerHTML="";
             stories.slice(0,5).forEach(story=>{
@@ -1037,10 +1065,50 @@
                 container.appendChild(div);
             });
         }
+
         async function loadNestaBlogs() {
-            // Deliberately do not overwrite these with Google News results: doing so caused
-            // the April theory-based-evaluation article to be falsely dated September.
+            // Instant, accurate fallback first.
             renderNestaStories(nestaSeedStories);
+
+            // Then look for newly indexed Nesta blog URLs. Because a pure browser file
+            // cannot reliably fetch Nesta pages cross-origin, an unseen candidate uses
+            // its discovery date provisionally; on later versions/known posts the Nesta
+            // verified seed date replaces it. This never lets discovery re-date a known post.
+            try {
+                const discovered = await fetchRSS("Nesta Blog Discovery", nestaDiscoveryFeed);
+                const knownByTitle = new Map(nestaSeedStories.map(x => [cleanNestaTitle(x.title).toLowerCase(), x]));
+                const merged = [...nestaSeedStories];
+                const seenTitles = new Set(merged.map(x => cleanNestaTitle(x.title).toLowerCase()));
+
+                for (const item of discovered) {
+                    const title = cleanNestaTitle(item.title);
+                    const key = title.toLowerCase();
+                    if (!title || seenTitles.has(key)) continue;
+
+                    // Google News often wraps the destination URL. Accept only results
+                    // explicitly identified as Nesta and never non-blog content.
+                    const text = `${item.title || ""} ${item.description || ""}`;
+                    if (!/nesta/i.test(text)) continue;
+
+                    let link = normaliseNestaUrl(item.link);
+                    if (!link) {
+                        const m = text.match(/https?:\/\/(?:www\.)?nesta\.org\.uk\/blog\/[^\s"'<>]+/i);
+                        link = m ? normaliseNestaUrl(m[0]) : "";
+                    }
+                    if (!link) continue;
+
+                    const date = new Date(item.pubDate);
+                    if (Number.isNaN(date.getTime())) continue;
+                    const pubDate = date.toISOString().slice(0,10);
+                    merged.push({ title, link, pubDate, provisional: true });
+                    seenTitles.add(key);
+                }
+
+                merged.sort((a,b) => new Date(b.pubDate) - new Date(a.pubDate));
+                renderNestaStories(merged);
+            } catch (error) {
+                console.warn("Nesta live discovery failed; keeping verified fallback.", error);
+            }
         }
 
         // --- 6. RENDER LOGIC ---
